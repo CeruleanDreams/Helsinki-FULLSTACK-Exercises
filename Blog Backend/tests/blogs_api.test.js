@@ -8,6 +8,8 @@ const Blog = require("../models/blogs")
 
 const api = supertest(app) //wrapping app around supertest agent
 
+const testToken = "Bearer " + "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkxvdmVMYWNlMTgiLCJpZCI6IjY0NTI3NmNiZjY5NmQwZTU5Nzk0MDU1ZSIsImlhdCI6MTY4MzEyNTk5OCwiZXhwIjoxNjgzMTQ3NTk4fQ.CHYwrMe3t4w-SeK5-WT53OHS4eOXO3U93YCjwimkWxk"
+
 beforeEach(async ()=> {
     const blogsToLoad = [{
         title: 'Dee212z nuts',
@@ -24,17 +26,16 @@ beforeEach(async ()=> {
 
       await Blog.deleteMany({})
 
-      const blogsToSave = blogsToLoad.map(blog => new Blog(blog))
-      const blogsAsPromises = blogsToSave.map(blog => blog.save())
+      const blogsToSave = blogsToLoad.map(blog => api.post('/api/blogs').send(blog).set('Authorization', testToken)) //POSTing and not saving manually
 
-      await Promise.all(blogsAsPromises) //Prevents beforeEach from passing to the next test without receiving a final promise for all promises
+      await Promise.all(blogsToSave) //Prevents beforeEach from passing to the next test without receiving a final promise for all promises
 })
 
 describe ("Blogs when GET request", () => {
 
     test("returned as JSON", async () => {
 
-        blogs = await api.get('/api/blogs')
+        const blogs = await api.get('/api/blogs').set('Authorization', testToken)
         .expect(200)
         .expect("Content-Type", /application\/json/)
 
@@ -44,7 +45,7 @@ describe ("Blogs when GET request", () => {
 
     test("correct amount returned", async () => {
 
-        blogs = await api.get('/api/blogs');
+        const blogs = await api.get('/api/blogs').set('Authorization', testToken);
         expect(blogs.body).toHaveLength(2); 
         //Don't forget that we're accessing the body,
         //not the entire response
@@ -54,7 +55,7 @@ describe ("Blogs when GET request", () => {
 
     test("id is returned", async () => {
 
-        blogs = await api.get('/api/blogs'); //Is an array don't forget
+        const blogs = await api.get('/api/blogs').set('Authorization', testToken); //Is an array don't forget
         
         //console.log(blogs.body)
 
@@ -92,9 +93,9 @@ describe("Blogs when trying to be added", () => {
             likes: 5
           }
 
-        await api.post('/api/blogs').send(newBlog).expect(201); //do not forget .send()
+        await api.post('/api/blogs').send(newBlog).set('Authorization', testToken).expect(201); //do not forget .send()
 
-        blogs = await api.get('/api/blogs'); 
+        const blogs = await api.get('/api/blogs').set('Authorization', testToken); 
 
         expect(blogs.body).toHaveLength(3)
 
@@ -103,17 +104,16 @@ describe("Blogs when trying to be added", () => {
 
     test("if likes missing initialised to 0 by default", async () => {
 
-          const newBlog = {
+        const newBlog = {
             title: 'BRO',
             author: 'John',
             url: 'https://www.blower.com/about/?bpli=1'
           }
 
-        await api.post('/api/blogs').send(newBlog).expect(201); //do not forget .send()
+        await api.post('/api/blogs').send(newBlog).set('Authorization', testToken).expect(201); //do not forget .send()
 
-        blogs = await api.get('/api/blogs'); 
+        const blogs = await api.get('/api/blogs').set('Authorization', testToken); 
 
-        console.log(blogs.body)
 
         blogs.body.map(blog => expect(blog.likes).toBeDefined)
 
@@ -127,7 +127,7 @@ describe("Blogs when trying to be added", () => {
           url: 'https://www.blower.com/about/?bpli=1'
         }
 
-      await api.post('/api/blogs').send(newBlog).expect(400)
+      await api.post('/api/blogs').send(newBlog).set('Authorization', testToken).expect(400)
 
   });
 });
@@ -135,14 +135,21 @@ describe("Blogs when trying to be added", () => {
 describe("Deleting or updating a blog", () => {
 
     test("Deleting a blog", async () => {
-        let blogs = await api.get('/api/blogs'); 
+        let blogs = await api.get('/api/blogs').set('Authorization', testToken); 
 
-        const firstBlogsId = blogs.body[0].id
-        await api.delete('/api/blogs/' + firstBlogsId).expect(204) //deletes the first blog
+        console.log(blogs.body)
 
-        blogs = await api.get('/api/blogs');
+        const originalLength = blogs.body.length
+        console.log(originalLength)
         
-        expect(blogs.body).toHaveLength(1) 
+        const firstBlogsId = blogs.body[0].id
+
+        await api.delete('/api/blogs/' + firstBlogsId).set('Authorization', testToken).expect(204) //deletes the first blog
+
+        blogs = await api.get('/api/blogs').set('Authorization', testToken);
+        
+        expect(blogs.body).toHaveLength(originalLength - 1)
+        console.log(blogs.body.length)
 
     });
 
@@ -156,19 +163,25 @@ describe("Deleting or updating a blog", () => {
           };
 
         
-        let blogs = await api.get('/api/blogs'); 
+        let blogs = await api.get('/api/blogs').set('Authorization', testToken); 
 
         const firstBlogsId = blogs.body[0].id
 
-        await api.put('/api/blogs/' + firstBlogsId).send(firstBlogUpdated).expect(202)
+        await api.put('/api/blogs/' + firstBlogsId).send(firstBlogUpdated).set('Authorization', testToken).expect(202)
 
-        blogs = await api.get('/api/blogs');
-
-        console.log(blogs.body)
+        blogs = await api.get('/api/blogs').set('Authorization', testToken);
 
         expect(blogs.body[0].likes).toBe(64);
 
     })
+
+    test("Veriyfing that the users are populated with blogs", async () => {
+
+      users = await api.get('/api/users').set('Authorization', testToken)
+      users.body.map(user => console.dir(user.blogs))
+
+
+  })
 })
 
 afterAll(async () => {

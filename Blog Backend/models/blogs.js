@@ -6,7 +6,8 @@ const blogSchema = new mongoose.Schema({
     title: String,
     author: String,
     url: String,
-    likes: Number
+    likes: Number,
+    user: {type: mongoose.Schema.Types.ObjectId, ref: "User"}
   })
   
   const Blog = mongoose.model('Blog', blogSchema);
@@ -19,6 +20,7 @@ const blogSchema = new mongoose.Schema({
 
     retObj.id = retObj._id
     delete retObj._id
+    delete retObj.__v
   }}); //This works since toJSON is called on all documents as it is extracted from the DB
 
   module.exports = Blog
